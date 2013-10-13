@@ -1,4 +1,3 @@
-load 'Crafting.rb'
 load 'Db.rb'
 load 'Query.rb'
 require 'pp'
@@ -11,13 +10,11 @@ opts = Trollop::options do
 	opt :update_market_data, 'Update market data',			:short => :m
 	opt :truncate_crafting_tree, 'Truncate crafting tree',	:short => :x
 	opt :truncate_market_data, 'Truncate market data',		:short => :y
-	opt :build_crafting_tree, 'Build crafting tree',		:short => :b
 	opt :perform_query, 'Perform query', :default => -1,	:short => :q
 	opt :list_by_profit, 'List crafting profit', :default => 0x80000000,
 		:short => :l
 end
 
-C = Crafting.new
 D = Db.new
 
 if opts[:update_item_structures]
@@ -33,10 +30,6 @@ D.truncate_market_table if opts[:truncate_market_data]
 D.update_rows :price, Query.get_item_price(D.get_crafting_item_types) if
 	opts[:update_market_data]
 
-if opts[:build_crafting_tree]
-	C.populate D.get_crafting_data, D.get_market_data, D.get_market_timestamp
-	C.dump
-end
 
 if opts[:list_by_profit] != 0x80000000
 	i = -1
