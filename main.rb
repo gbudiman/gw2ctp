@@ -39,26 +39,18 @@ if opts[:build_crafting_tree]
 end
 
 if opts[:list_by_profit] != 0x80000000
-	x = Crafting::load
-	t = D.get_market_timestamp[0]['latest_time']
 	i = -1
-	p = 20
-	x.sort_by { |key, data| data['profit_if_crafted']
-		# if data['market_data'] != nil and data['market_data'][t] != nil
-		# 	(data['market_data'][t]['sell_price'] || 0) -
-		# 		(data['crafting_cost'] || 0)
-		# else
-		# 	0
-		# end
-	}.reverse.each do |key, data|
+	p = 10
+	D.get_crafting_profit.each do |x|
 		i += 1
 		next unless i >= opts[:list_by_profit] * p and
 			i < (opts[:list_by_profit] + 1) * p
-		pp data
+		pp x
 	end
 end
 
 if opts[:perform_query] != -1
-	x = Crafting::load
-	pp x[opts[:perform_query]]
+	D.get_crafting_dependency(opts[:perform_query]).each do |x|
+		pp x
+	end
 end
