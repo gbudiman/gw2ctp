@@ -43,9 +43,9 @@ class Db
 				, crafts.comp_amt AS comp_amt
 				FROM crafts 
 				INNER JOIN items AS FinalItem
-					ON Crafts.final_id = FinalItem.id				
+					ON crafts.final_id = FinalItem.id				
 				INNER JOIN items AS CompItem
-					ON Crafts.comp_id = CompItem.id
+					ON crafts.comp_id = CompItem.id
 			'
 	end
 
@@ -60,7 +60,7 @@ class Db
 						ON crafts.final_id = items.id
 				UNION
 				SELECT DISTINCT items.type_id
-					FROM Crafts
+					FROM crafts
 					INNER JOIN items
 						ON crafts.comp_id = items.id) AS t_list
 				INNER JOIN types
@@ -80,7 +80,7 @@ class Db
 				, comp_market.sell_price
 				, comp_market.sell_price * crafts.comp_amt
 					AS crafting_cost
-				FROM Crafts
+				FROM crafts
 				INNER JOIN markets AS target_market
 					ON target_market.item_id = crafts.final_id
 					AND target_market.time = 
