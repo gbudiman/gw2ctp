@@ -6,18 +6,18 @@ class Db
 	end
 
 	def create_table
-		@dbh.execute "CREATE TABLE IF NOT EXISTS Items(
+		@dbh.execute "CREATE TABLE IF NOT EXISTS items(
 				id INTEGER PRIMARY KEY,
 				name TEXT,
 				level INTEGER,
 				rarity TEXT,
 				type_id INTEGER
 			)"
-		@dbh.execute "CREATE TABLE IF NOT EXISTS Types(
+		@dbh.execute "CREATE TABLE IF NOT EXISTS types(
 				id INTEGER PRIMARY KEY,
 				name TEXT
 			)"
-		@dbh.execute "CREATE TABLE IF NOT EXISTS Market(
+		@dbh.execute "CREATE TABLE IF NOT EXISTS markets(
 				id INTEGER PRIMARY KEY,
 				item_id INTEGER,
 				buy_count INTEGER,
@@ -26,7 +26,7 @@ class Db
 				sell_price INTEGER,
 				time INTEGER
 			)"
-		@dbh.execute "CREATE TABLE IF NOT EXISTS Crafting(
+		@dbh.execute "CREATE TABLE IF NOT EXISTS crafts(
 				id INTEGER PRIMARY KEY,
 				final_id INTEGER,
 				comp_id INTEGER,
@@ -36,64 +36,64 @@ class Db
 
 	def get_crafting_data
 		return @dbh.execute '
-			SELECT Crafting.final_id AS target_id
+			SELECT crafts.final_id AS target_id
 				, FinalItem.name AS target_name
-				, Crafting.comp_id AS comp_id
+				, crafts.comp_id AS comp_id
 				, CompItem.name AS comp_name
-				, Crafting.comp_amt AS comp_amt
-				FROM Crafting 
-				INNER JOIN Items AS FinalItem
-					ON Crafting.final_id = FinalItem.id				
-				INNER JOIN Items AS CompItem
-					ON Crafting.comp_id = CompItem.id
+				, crafts.comp_amt AS comp_amt
+				FROM crafts 
+				INNER JOIN items AS FinalItem
+					ON Crafts.final_id = FinalItem.id				
+				INNER JOIN items AS CompItem
+					ON Crafts.comp_id = CompItem.id
 			'
 	end
 
 	def get_crafting_item_types
 		return @dbh.execute '
-			SELECT Types.id AS type_id
-				, Types.name AS name
+			SELECT types.id AS type_id
+				, types.name AS name
 				FROM
-				(SELECT DISTINCT Items.type_id
-					FROM Crafting
-					INNER JOIN Items
-						ON Crafting.final_id = Items.id
+				(SELECT DISTINCT items.type_id
+					FROM crafts
+					INNER JOIN items
+						ON crafts.final_id = items.id
 				UNION
-				SELECT DISTINCT Items.type_id
-					FROM Crafting
-					INNER JOIN Items
-						ON Crafting.comp_id = Items.id) AS t_list
-				INNER JOIN Types
-					ON t_list.type_id = Types.id
+				SELECT DISTINCT items.type_id
+					FROM Crafts
+					INNER JOIN items
+						ON crafts.comp_id = items.id) AS t_list
+				INNER JOIN types
+					ON t_list.type_id = types.id
 			'
 	end
 
 	def get_crafting_dependency _id
 		x = @dbh.prepare '
-			SELECT Crafting.final_id
+			SELECT crafts.final_id
 				, target_item.name
-				, Crafting.comp_id
+				, crafts.comp_id
 				, comp_item.name
-				, Crafting.comp_amt
+				, crafts.comp_amt
 				, comp_market.sell_price
 				, target_market.sell_price
 				, comp_market.sell_price
-				, comp_market.sell_price * Crafting.comp_amt
+				, comp_market.sell_price * crafts.comp_amt
 					AS crafting_cost
-				FROM Crafting
-				INNER JOIN Market AS target_market
-					ON target_market.item_id = Crafting.final_id
+				FROM Crafts
+				INNER JOIN markets AS target_market
+					ON target_market.item_id = crafts.final_id
 					AND target_market.time = 
-						(SELECT MAX(time) FROM Market)
-				INNER JOIN Items AS target_item
-					ON target_item.id = Crafting.final_id
-				INNER JOIN Market AS comp_market
-					ON comp_market.item_id = Crafting.comp_id
+						(SELECT MAX(time) FROM markets)
+				INNER JOIN items AS target_item
+					ON target_item.id = crafts.final_id
+				INNER JOIN markets AS comp_market
+					ON comp_market.item_id = crafts.comp_id
 					AND comp_market.time = 
-						(SELECT MAX(time) FROM Market)
-				INNER JOIN Items AS comp_item
-					ON comp_item.id = Crafting.comp_id
-				WHERE Crafting.final_id = ?
+						(SELECT MAX(time) FROM markets)
+				INNER JOIN items AS comp_item
+					ON comp_item.id = crafts.comp_id
+				WHERE crafts.final_id = ?
 			'
 		return x.execute _id
 	end
@@ -116,27 +116,27 @@ class Db
 						SUM(crafting_tree.component_cost) 
 						AS crafting_profit_on_buy
 					FROM
-					(SELECT Crafting.final_id AS target
-						, Crafting.comp_id AS component
-						, Crafting.comp_amt * component_market.sell_price 
+					(SELECT crafts.final_id AS target
+						, crafts.comp_id AS component
+						, crafts.comp_amt * component_market.sell_price 
 							AS component_cost
 						, target_market.sell_price AS target_sell_price
 						, target_market.sell_count AS target_sell_count
 						, target_market.buy_price AS target_buy_price
 						, target_market.buy_count AS target_buy_count
-						FROM Crafting
-						INNER JOIN Market AS component_market
-							ON component_market.item_id = Crafting.comp_id
+						FROM crafts
+						INNER JOIN markets AS component_market
+							ON component_market.item_id = crafts.comp_id
 							AND component_market.time = (
-								SELECT MAX(time) FROM Market
+								SELECT MAX(time) FROM markets
 							)
-						INNER JOIN Market AS target_market
-							ON target_market.item_id = Crafting.final_id
+						INNER JOIN markets AS target_market
+							ON target_market.item_id = crafts.final_id
 							AND target_market.time = (
-								SELECT MAX(time) FROM Market
+								SELECT MAX(time) FROM markets
 							)
 					) AS crafting_tree
-					INNER JOIN Items AS target_item
+					INNER JOIN items AS target_item
 						ON crafting_tree.target = target_item.id
 					GROUP BY target_id)
 				AS grouped
@@ -145,33 +145,33 @@ class Db
 	end
 
 	def get_market_data
-		return @dbh.execute 'SELECT * FROM Market'
+		return @dbh.execute 'SELECT * FROM markets'
 	end
 
 	def get_market_timestamp
-		return @dbh.execute 'SELECT MAX(time) AS latest_time FROM Market'
+		return @dbh.execute 'SELECT MAX(time) AS latest_time FROM markets'
 	end
 
 	def get_rows
-		return @dbh.execute("SELECT id, name FROM Items")
+		return @dbh.execute("SELECT id, name FROM items")
 	end
 
 	def open_databse
-		return SQLite3::Database.open 'gw2tp.db'
+		return SQLite3::Database.open 'gw2ctp.db'
 	end
 
 	def truncate_crafting_table
-		@dbh.execute "DELETE FROM Crafting"
+		@dbh.execute "DELETE FROM crafts"
 	end
 
 	def truncate_market_table
-		@dbh.execute "DELETE FROM Market"
+		@dbh.execute "DELETE FROM markets"
 	end
 
 	def update_rows _table, _h
 		case _table
 		when :crafting
-			x = @dbh.prepare("INSERT INTO Crafting (
+			x = @dbh.prepare("INSERT INTO crafts (
 					final_id, comp_id, comp_amt
 				) VALUES(?, ?, ?)")
 
@@ -181,7 +181,7 @@ class Db
 					d['comp_amt'])
 			end
 		when :item_lists
-			x = @dbh.prepare("INSERT OR REPLACE INTO Items VALUES(
+			x = @dbh.prepare("INSERT OR REPLACE INTO items VALUES(
 				?, ?, ?, ?, ?)")
 
 			_h.each do |key, data|
@@ -193,7 +193,7 @@ class Db
 			end
 		when :price
 			@dbh.execute 'BEGIN TRANSACTION'
-			x = @dbh.prepare("INSERT INTO Market (
+			x = @dbh.prepare("INSERT INTO markets (
 					item_id, buy_count, sell_count,
 					buy_price, sell_price, time
 				) VALUES(?, ?, ?, ?, ?, ?)")
@@ -208,7 +208,7 @@ class Db
 			end
 			@dbh.execute 'COMMIT TRANSACTION'
 		when :types
-			x = @dbh.prepare("INSERT OR REPLACE INTO Types VALUES(
+			x = @dbh.prepare("INSERT OR REPLACE INTO types VALUES(
 				?, ?)")
 
 			_h.each do |key, data|
