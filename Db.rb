@@ -1,6 +1,6 @@
 class Db
 	def initialize
-		@dbh = open_databse
+		@dbh = open_database
 		@dbh.results_as_hash = true
 		create_table
 	end
@@ -32,6 +32,8 @@ class Db
 				comp_id INTEGER,
 				comp_amt INTEGER
 			)"
+		@dbh.execute "CREATE INDEX IF NOT EXISTS market_item_id_time
+				ON markets (item_id, time)"
 	end
 
 	def get_crafting_data
@@ -156,8 +158,9 @@ class Db
 		return @dbh.execute("SELECT id, name FROM items")
 	end
 
-	def open_databse
-		return SQLite3::Database.open 'gw2ctp.db'
+	def open_database
+		dbfile = File.dirname(__FILE__) + '/gw2ctp.db'
+		return SQLite3::Database.open dbfile
 	end
 
 	def truncate_crafting_table

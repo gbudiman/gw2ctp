@@ -1,5 +1,5 @@
-load 'Db.rb'
-load 'Query.rb'
+require_relative 'Db'
+require_relative 'Query'
 require 'pp'
 require 'sqlite3'
 require 'trollop'
