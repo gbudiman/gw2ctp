@@ -34,6 +34,7 @@ class Db
 			)"
 		@dbh.execute "CREATE TABLE IF NOT EXISTS profits(
 				id INTEGER PRIMARY KEY,
+				name TEXT,
 				sell_price INTEGER,
 				sell_count INTEGER,
 				buy_price INTEGER,
@@ -193,9 +194,10 @@ class Db
 			@dbh.execute 'DELETE FROM profits'
 			@dbh.execute '
 				INSERT INTO profits
-					(id, sell_price, buy_price, sell_count, buy_count,
+					(id, name, sell_price, buy_price, sell_count, buy_count,
 					crafting_cost, crafting_profit_on_sell, crafting_profit_on_buy)
 				SELECT grouped.target_id
+					, items.name
 					, grouped.target_sell_price
 					, grouped.target_buy_price
 					, grouped.target_sell_count
@@ -241,6 +243,7 @@ class Db
             	            ON crafting_tree.target = target_item.id
                 	    GROUP BY target_id)
 	                AS grouped
+					INNER JOIN items on grouped.target_id = items.id
     	            ORDER BY grouped.target_id DESC
         	    '
 
