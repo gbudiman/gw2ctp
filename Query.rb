@@ -63,7 +63,7 @@ class Query
 						'buy_price'		=> item['buy_price'],
 						'sell_price'	=> item['sell_price'],
 						'time'			=> timestamp
-					})
+					}) if item['buy_count'] != nil and item['sell_count'] != nil
 				end
 			end
 		end

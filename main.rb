@@ -8,6 +8,7 @@ opts = Trollop::options do
 	opt :update_item_structures, 'Update item structures', 	:short => :i
 	opt :update_crafting_tree, 'Update crafting tree',		:short => :c
 	opt :update_market_data, 'Update market data',			:short => :m
+	opt :update_profit_data, 'Update profit data',			:short => :p
 	opt :truncate_crafting_tree, 'Truncate crafting tree',	:short => :x
 	opt :truncate_market_data, 'Truncate market data',		:short => :y
 	opt :perform_query, 'Perform query', :default => -1,	:short => :q
@@ -30,11 +31,12 @@ D.truncate_market_table if opts[:truncate_market_data]
 D.update_rows :price, Query.get_item_price(D.get_crafting_item_types) if
 	opts[:update_market_data]
 
+D.update_rows :profits if opts[:update_profit_data]
 
 if opts[:list_by_profit] != 0x80000000
 	i = -1
 	p = 10
-	D.get_crafting_profit.each do |x|
+	D.get_profit_data.each do |x|
 		i += 1
 		next unless i >= opts[:list_by_profit] * p and
 			i < (opts[:list_by_profit] + 1) * p

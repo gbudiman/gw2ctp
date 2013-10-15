@@ -32,8 +32,24 @@ class Db
 				comp_id INTEGER,
 				comp_amt INTEGER
 			)"
-		@dbh.execute "CREATE INDEX IF NOT EXISTS market_item_id_time
+		@dbh.execute "CREATE TABLE IF NOT EXISTS profits(
+				id INTEGER PRIMARY KEY,
+				sell_price INTEGER,
+				sell_count INTEGER,
+				buy_price INTEGER,
+				buy_count INTEGER,
+				crafting_cost INTEGER,
+				crafting_profit_on_sell INTEGER,
+				crafting_profit_on_buy INTEGER
+			)"
+		@dbh.execute "CREATE INDEX IF NOT EXISTS markets_item_id_time
 				ON markets (item_id, time)"
+		@dbh.execute "CREATE INDEX IF NOT EXISTS profits_by_sell
+				ON profits (crafting_profit_on_sell DESC)"
+		@dbh.execute "CREATE INDEX IF NOT EXISTS profits_by_buy
+				ON profits (crafting_profit_on_buy DESC)"
+		@dbh.execute "CREATE INDEX IF NOT EXISTS crafts_final_id
+				ON crafts (final_id)"
 	end
 
 	def get_crafting_data
@@ -100,58 +116,20 @@ class Db
 		return x.execute _id
 	end
 
-	def get_crafting_profit 
-		return @dbh.execute '
-			SELECT *
-				FROM
-				(SELECT crafting_tree.target AS target_id
-					, target_item.name AS target_name
-					, crafting_tree.target_sell_price AS target_sell_price
-					, crafting_tree.target_buy_price AS target_buy_price
-					, crafting_tree.target_sell_count AS target_sell_count
-					, crafting_tree.target_buy_count AS target_buy_count
-					, SUM(crafting_tree.component_cost) AS component_cost
-					, crafting_tree.target_sell_price - 
-						SUM(crafting_tree.component_cost) 
-						AS crafting_profit_on_sell
-					, crafting_tree.target_buy_price - 
-						SUM(crafting_tree.component_cost) 
-						AS crafting_profit_on_buy
-					FROM
-					(SELECT crafts.final_id AS target
-						, crafts.comp_id AS component
-						, crafts.comp_amt * component_market.sell_price 
-							AS component_cost
-						, target_market.sell_price AS target_sell_price
-						, target_market.sell_count AS target_sell_count
-						, target_market.buy_price AS target_buy_price
-						, target_market.buy_count AS target_buy_count
-						FROM crafts
-						INNER JOIN markets AS component_market
-							ON component_market.item_id = crafts.comp_id
-							AND component_market.time = (
-								SELECT MAX(time) FROM markets
-							)
-						INNER JOIN markets AS target_market
-							ON target_market.item_id = crafts.final_id
-							AND target_market.time = (
-								SELECT MAX(time) FROM markets
-							)
-					) AS crafting_tree
-					INNER JOIN items AS target_item
-						ON crafting_tree.target = target_item.id
-					GROUP BY target_id)
-				AS grouped
-				ORDER BY grouped.crafting_profit_on_buy DESC
-			'
-	end
-
 	def get_market_data
 		return @dbh.execute 'SELECT * FROM markets'
 	end
 
 	def get_market_timestamp
 		return @dbh.execute 'SELECT MAX(time) AS latest_time FROM markets'
+	end
+
+	def get_profit_data
+		return @dbh.execute '
+			SELECT * 
+				FROM profits 
+				ORDER BY crafting_profit_on_buy DESC
+			'
 	end
 
 	def get_rows
@@ -171,7 +149,7 @@ class Db
 		@dbh.execute "DELETE FROM markets"
 	end
 
-	def update_rows _table, _h
+	def update_rows _table, _h = Hash.new
 		case _table
 		when :crafting
 			x = @dbh.prepare("INSERT INTO crafts (
@@ -209,6 +187,63 @@ class Db
 					d['sell_price'],
 					d['time'])
 			end
+			@dbh.execute 'COMMIT TRANSACTION'
+		when :profits
+			@dbh.execute 'BEGIN TRANSACTION'
+			@dbh.execute 'DELETE FROM profits'
+			@dbh.execute '
+				INSERT INTO profits
+					(id, sell_price, buy_price, sell_count, buy_count,
+					crafting_cost, crafting_profit_on_sell, crafting_profit_on_buy)
+				SELECT grouped.target_id
+					, grouped.target_sell_price
+					, grouped.target_buy_price
+					, grouped.target_sell_count
+					, grouped.target_buy_count
+					, grouped.crafting_cost
+					, grouped.crafting_profit_on_sell
+					, grouped.crafting_profit_on_buy
+                	FROM
+	                (SELECT crafting_tree.target AS target_id
+    	                , target_item.name AS target_name
+        	            , crafting_tree.target_sell_price AS target_sell_price
+            	        , crafting_tree.target_buy_price AS target_buy_price
+                	    , crafting_tree.target_sell_count AS target_sell_count
+                   		, crafting_tree.target_buy_count AS target_buy_count
+	                   	, SUM(crafting_tree.crafting_cost) AS crafting_cost
+    	                , crafting_tree.target_sell_price -
+        	                SUM(crafting_tree.crafting_cost)
+            	            AS crafting_profit_on_sell
+	                    , crafting_tree.target_buy_price -
+    	                    SUM(crafting_tree.crafting_cost)
+        	                AS crafting_profit_on_buy
+            	        FROM
+                	    (SELECT crafts.final_id AS target
+                    	    , crafts.comp_amt * component_market.sell_price
+                        	    AS crafting_cost
+	                        , target_market.sell_price AS target_sell_price
+    	                    , target_market.sell_count AS target_sell_count
+        	                , target_market.buy_price AS target_buy_price
+            	            , target_market.buy_count AS target_buy_count
+                	        FROM crafts
+                    	    INNER JOIN markets AS component_market
+                        	    ON component_market.item_id = crafts.comp_id
+	                           	AND component_market.time = (
+    	                            SELECT MAX(time) FROM markets
+        	                    )
+            	            INNER JOIN markets AS target_market
+                	            ON target_market.item_id = crafts.final_id
+                    	        AND target_market.time = (
+                        	        SELECT MAX(time) FROM markets
+	                            )
+    	                ) AS crafting_tree
+        	            INNER JOIN items AS target_item
+            	            ON crafting_tree.target = target_item.id
+                	    GROUP BY target_id)
+	                AS grouped
+    	            ORDER BY grouped.target_id DESC
+        	    '
+
 			@dbh.execute 'COMMIT TRANSACTION'
 		when :types
 			x = @dbh.prepare("INSERT OR REPLACE INTO types VALUES(
