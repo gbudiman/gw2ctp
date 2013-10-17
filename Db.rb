@@ -43,6 +43,8 @@ class Db
 				crafting_profit_on_sell INTEGER,
 				crafting_profit_on_buy INTEGER
 			)"
+		@dbh.execute "CREATE INDEX IF NOT EXISTS markets_time
+				ON markets (time DESC)"
 		@dbh.execute "CREATE INDEX IF NOT EXISTS markets_item_id_time
 				ON markets (item_id, time)"
 		@dbh.execute "CREATE INDEX IF NOT EXISTS profits_by_sell
